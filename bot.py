@@ -30,7 +30,7 @@ def get_market_data_by_codes():
     for crop in CROP_CODE_MAP:
         params = {
             "serviceKey": DATA_GO_KR_API_KEY,
-            "numOfRows": "10",
+            "numOfRows": "20",
             "pageNo": "1",
             "_type": "json",
             "saleDate": yesterday,
@@ -41,22 +41,12 @@ def get_market_data_by_codes():
         try:
             res = requests.get(url, params=params, timeout=5)
             if res.status_code == 200 and ("item" in res.text or "price" in res.text.lower()):
-                collected_data.append(f"[{crop['name']} (품목코드:{crop['item_code']}/품종:{crop['kind_code']})]\n{res.text[:400]}")
+                collected_data.append(f"[{crop['name']} (품목코드:{crop['item_code']}/품종:{crop['kind_code']})]\n{res.text[:800]}")
         except Exception:
             pass
 
     if not collected_data:
-        return """
-        [품목코드 211 / 배추 (10kg 망)] 평균가 12,200원, 최고가 14,500원 (전일비 반입량 15% 감소, 강보합세)
-        [품목코드 231 / 무 (20kg 상자)] 평균가 16,100원, 최고가 18,000원 (산지 출하량 일정, 보합세)
-        [품목코드 212 / 양배추 (8kg 망)] 평균가 8,300원, 최고가 9,500원 (품위별 시세 편차 발생, 약보합세)
-        [품목코드 223-02 / 백다다기오이 (100개 상자)] 평균가 58,000원, 최고가 65,000원 (기온 하락으로 산지 작황 부진 및 출하량 감소, 강세)
-        [품목코드 225-00 / 일반토마토 (5kg 상자)] 평균가 19,500원, 최고가 23,000원 (착색 지연으로 완숙과 물량 부족, 강보합세)
-        [품목코드 243-00 / 홍고추 (10kg 상자)] 평균가 48,000원, 최고가 55,000원 (착색기 일조량 부족으로 출하량 감소, 강세)
-        [품목코드 242-02 / 신미계 풋고추-청양 (10kg 상자)] 평균가 56,000원, 최고가 64,000원 (야간 기온 하락으로 생육 지연, 반입량 감소하며 강세)
-        [품목코드 242-03 / 오이맛고추 (10kg 상자)] 평균가 42,000원, 최고가 49,000원 (중소형 마트 납품 수요 꾸준, 보합세)
-        [품목코드 242-00 / 모닝고추 (10kg 상자)] 평균가 44,500원, 최고가 51,000원 (곡과 발생 적어 상품 위주 거래 활발, 강보합세)
-        """
+        return "데이터 수집 원시 샘플"
     return "\n\n".join(collected_data)
 
 def generate_briefing(raw_data):
@@ -64,23 +54,22 @@ def generate_briefing(raw_data):
     crop_list_str = "\n".join([f"- {c['name']} (품목코드 {c['item_code']}-{c['kind_code']})" for c in CROP_CODE_MAP])
     
     prompt = f"""
-    당신은 원예 농산물 및 종자 영업 전문가입니다.
-    아래 품목코드별로 수집된 가락시장 경매 데이터를 바탕으로, 영업사원이 아침 출근길에 즉시 파악할 수 있는 텔레그램 브리핑을 작성해 주세요.
+    당신은 베테랑 원예 농산물 및 종자 영업 전문가입니다.
+    현재 날짜 기준으로 직전 주간 및 전날의 국내 주요 산지(강원, 영남, 호남 등)의 기상 상황(기온, 일조량, 강수, 일교차 등)과 계절적 생육 특성을 입체적으로 연계하여, 가락시장 경매 데이터에 훌륭한 스토리와 분석을 살 붙여 브리핑을 작성해 주세요.
 
     [필수 분류 대상 및 품목코드]:
     {crop_list_str}
 
-    [수집된 원시 데이터]:
+    [수집된 경매 데이터(물량 및 금액 팩트)]:
     {raw_data}
 
     [작성 규칙]:
-    1. 반드시 위 9가지 작물(배추, 무, 양배추, 백다다기오이, 일반토마토, 홍고추, 신미계 풋고추, 오이맛고추, 모닝고추)을 하나도 합치지 말고 각각 별도 항목으로 나누어 작성할 것
-    2. 이모지를 활용해 시인성을 높이고, 규격과 평균가/최고가, 시세 등락 원인을 1~2줄로 명확히 적을 것
-    3. 마지막 줄에는 오늘 시세를 바탕으로 대리점이나 농가 방문 시 나눌 수 있는 '실전 영업 화두(팁)'를 한 줄로 작성할 것
+    1. 9가지 작물을 각각 빠짐없이 개별 항목으로 나누어 작성할 것
+    2. 각 품목별로 규격, 평균가, 최고가, 그리고 해당 거래 물량(반입량)을 명확히 기재할 것
+    3. 최근 산지의 날씨 흐름(일조량 부족, 일교차 큰 환절기, 강수 영향, 저온 기조 등)이 해당 작물의 생육과 출하량에 미친 인과관계를 전문적이고 설득력 있게 1~2줄의 분석 스토리로 녹여낼 것
     4. 별표(**)를 사용한 강조 문법은 절대 사용하지 말 것
     """
     
-    # 서버 혼잡(503 에러) 발생 시 최대 3번까지 재시도하도록 방어 코드 추가
     for attempt in range(3):
         try:
             response = client.models.generate_content(
@@ -89,7 +78,6 @@ def generate_briefing(raw_data):
             )
             return response.text
         except Exception as e:
-            print(f"제미나이 호출 중 일시적 오류 발생 (시도 {attempt+1}/3): {e}")
             if attempt == 2:
                 raise e
             time.sleep(3)
@@ -107,7 +95,7 @@ def send_telegram_message(text_content):
         print(f"전송 실패: {res.text}")
 
 if __name__ == "__main__":
-    print("데이터 수집 및 제미나이 브리핑 생성 시작...")
+    print("데이터 수집 및 제미나이 기후 연계 분석 브리핑 생성 시작...")
     market_data = get_market_data_by_codes()
     briefing = generate_briefing(market_data)
     send_telegram_message(briefing)
