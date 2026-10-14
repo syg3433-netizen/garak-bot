@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import requests
 from datetime import datetime, timedelta
@@ -79,11 +80,19 @@ def generate_briefing(raw_data):
     4. 별표(**)를 사용한 강조 문법은 절대 사용하지 말 것
     """
     
-    response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
-        contents=prompt
-    )
-    return response.text
+    # 서버 혼잡(503 에러) 발생 시 최대 3번까지 재시도하도록 방어 코드 추가
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash-lite",
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"제미나이 호출 중 일시적 오류 발생 (시도 {attempt+1}/3): {e}")
+            if attempt == 2:
+                raise e
+            time.sleep(3)
 
 def send_telegram_message(text_content):
     send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
